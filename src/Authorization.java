@@ -3,6 +3,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -73,14 +74,7 @@ public class Authorization extends JFrame {
         JPanel contentPanel = new JPanel(new GridLayout(1, 2, 20, 0));
         contentPanel.setOpaque(false);
 
-        JLabel illustrationLabel = new JLabel("Authorization", SwingConstants.CENTER);
-        illustrationLabel.setPreferredSize(new Dimension(260, 230));
-        illustrationLabel.setOpaque(true);
-        illustrationLabel.setBackground(Color.WHITE);
-        illustrationLabel.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
-        illustrationLabel.setFont(new Font("Segoe UI", Font.PLAIN, 22));
-        illustrationLabel.setForeground(new Color(120, 120, 120));
-        contentPanel.add(illustrationLabel);
+        contentPanel.add(createIllustrationPanel());
 
         JPanel formPanel = new JPanel();
         formPanel.setOpaque(false);
@@ -120,5 +114,43 @@ public class Authorization extends JFrame {
 
         contentPanel.add(formPanel);
         jPanel.add(contentPanel, BorderLayout.CENTER);
+    }
+
+    private JComponent createIllustrationPanel() {
+        JPanel illustrationPanel = new JPanel(new BorderLayout());
+        illustrationPanel.setPreferredSize(new Dimension(260, 230));
+        illustrationPanel.setOpaque(true);
+        illustrationPanel.setBackground(Color.WHITE);
+        illustrationPanel.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+
+        File imageFile = new File("resources/Auth.png");
+        if (imageFile.isFile()) {
+            ImageIcon imageIcon = new ImageIcon(imageFile.getPath());
+            JLabel imageLabel = new JLabel(scaleIcon(imageIcon, 420, 320));
+            imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            imageLabel.setVerticalAlignment(SwingConstants.CENTER);
+            illustrationPanel.add(imageLabel, BorderLayout.CENTER);
+            return illustrationPanel;
+        }
+
+        JLabel fallbackLabel = new JLabel("Authorization", SwingConstants.CENTER);
+        fallbackLabel.setFont(new Font("Segoe UI", Font.PLAIN, 22));
+        fallbackLabel.setForeground(new Color(120, 120, 120));
+        illustrationPanel.add(fallbackLabel, BorderLayout.CENTER);
+        return illustrationPanel;
+    }
+
+    private ImageIcon scaleIcon(ImageIcon icon, int maxWidth, int maxHeight) {
+        int iconWidth = icon.getIconWidth();
+        int iconHeight = icon.getIconHeight();
+        if (iconWidth <= 0 || iconHeight <= 0) {
+            return icon;
+        }
+
+        double scale = Math.min((double) maxWidth / iconWidth, (double) maxHeight / iconHeight);
+        int width = Math.max(1, (int) Math.round(iconWidth * scale));
+        int height = Math.max(1, (int) Math.round(iconHeight * scale));
+        Image scaledImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        return new ImageIcon(scaledImage);
     }
 }
