@@ -1,16 +1,24 @@
 import net.proteanit.sql.DbUtils;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.util.JRLoader;
+import net.sf.jasperreports.view.JasperViewer;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
+import java.util.HashMap;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 public class Employees extends JFrame {
@@ -19,18 +27,18 @@ public class Employees extends JFrame {
     private JTable table1;
     private JTextField id;
     private JTextField address;
-    private JTextField FIO;
-    private JTextField pNumber;
-    private JTextField date;
-    private JTextField param;
+    private JTextField fio;
+    private JTextField phoneNumber;
+    private JTextField dateBorn;
+    private JTextField reportParam;
     private JComboBox<String> kruzhok;
     private JComboBox<String> position;
     private JComboBox<String> group;
-    private JButton обновитьButton;
-    private JButton добавитьButton;
-    private JButton удалитьButton;
-    private JButton отчетПоНомеруButton;
-    private JButton просмотретьОтчетButton;
+    private JButton updateButton;
+    private JButton addButton;
+    private JButton deleteButton;
+    private JButton reportByNumberButton;
+    private JButton viewReportButton;
 
     Connection conn = null;
     ResultSet rs = null;
@@ -47,12 +55,15 @@ public class Employees extends JFrame {
 
     private void buildUi() {
         jpanel = new JPanel(new BorderLayout());
-        jpanel.setBackground(new Color(240, 240, 240));
-        jpanel.setBorder(new EmptyBorder(16, 16, 16, 16));
+        jpanel.setBackground(new Color(242, 242, 242));
+        jpanel.setBorder(new EmptyBorder(18, 18, 18, 18));
 
-        JPanel contentPanel = new JPanel(new BorderLayout(0, 14));
-        contentPanel.setOpaque(false);
-        contentPanel.setBorder(BorderFactory.createLineBorder(new Color(170, 170, 170)));
+        JPanel contentPanel = new JPanel(new BorderLayout(0, 10));
+        contentPanel.setBackground(new Color(242, 242, 242));
+        contentPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(150, 150, 150)),
+                new EmptyBorder(12, 12, 12, 12)
+        ));
 
         contentPanel.add(createTablePanel(), BorderLayout.NORTH);
         contentPanel.add(createEditorPanel(), BorderLayout.CENTER);
@@ -63,19 +74,26 @@ public class Employees extends JFrame {
 
     private JComponent createTablePanel() {
         JPanel tablePanel = new JPanel(new BorderLayout(0, 6));
-        tablePanel.setOpaque(false);
-        tablePanel.setBorder(new EmptyBorder(12, 12, 0, 12));
+        tablePanel.setBackground(jpanel.getBackground());
 
         JLabel titleLabel = new JLabel("Список всех сотрудников", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        titleLabel.setBorder(BorderFactory.createLineBorder(new Color(170, 170, 170)));
         tablePanel.add(titleLabel, BorderLayout.NORTH);
 
         table1 = new JTable();
-        table1.setRowHeight(24);
+        table1.setRowHeight(26);
         table1.setFillsViewportHeight(true);
+        table1.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table1.setGridColor(new Color(200, 200, 200));
+
+        JTableHeader header = table1.getTableHeader();
+        header.setReorderingAllowed(false);
+        header.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
         JScrollPane scrollPane = new JScrollPane(table1);
-        scrollPane.setPreferredSize(new Dimension(0, 110));
+        scrollPane.setPreferredSize(new Dimension(0, 145));
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(170, 170, 170)));
         tablePanel.add(scrollPane, BorderLayout.CENTER);
 
         return tablePanel;
@@ -83,167 +101,181 @@ public class Employees extends JFrame {
 
     private JComponent createEditorPanel() {
         JPanel editorPanel = new JPanel(new GridBagLayout());
-        editorPanel.setOpaque(false);
-        editorPanel.setBorder(new EmptyBorder(6, 12, 12, 12));
+        editorPanel.setBackground(jpanel.getBackground());
+        editorPanel.setBorder(BorderFactory.createLineBorder(new Color(170, 170, 170)));
 
         id = new JTextField();
         address = new JTextField();
-        FIO = new JTextField();
-        pNumber = new JTextField();
-        date = new JTextField();
-        param = new JTextField();
-        param.setVisible(false);
+        fio = new JTextField();
+        phoneNumber = new JTextField();
+        dateBorn = new JTextField();
+        reportParam = new JTextField();
+        reportParam.setVisible(false);
 
         kruzhok = new JComboBox<>();
         position = new JComboBox<>();
         group = new JComboBox<>();
 
-        обновитьButton = createActionButton("Обновить");
-        добавитьButton = createActionButton("Добавить");
-        удалитьButton = createActionButton("Удалить");
+        updateButton = createActionButton("Обновить");
+        addButton = createActionButton("Добавить");
+        deleteButton = createActionButton("Удалить");
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 6, 8, 6);
+        gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
         addField(editorPanel, gbc, 0, 0, "№", id);
         addField(editorPanel, gbc, 1, 0, "Адрес", address);
-        addControl(editorPanel, gbc, 2, 1, обновитьButton);
+        addControl(editorPanel, gbc, 2, 1, updateButton);
 
-        addField(editorPanel, gbc, 0, 2, "ФИО", FIO);
-        addField(editorPanel, gbc, 1, 2, "Номер телефона", pNumber);
-        addControl(editorPanel, gbc, 2, 3, добавитьButton);
+        addField(editorPanel, gbc, 0, 2, "ФИО", fio);
+        addField(editorPanel, gbc, 1, 2, "Номер телефона", phoneNumber);
+        addControl(editorPanel, gbc, 2, 3, addButton);
 
-        addField(editorPanel, gbc, 0, 4, "Дата рождения", date);
+        addField(editorPanel, gbc, 0, 4, "Дата рождения", dateBorn);
         addField(editorPanel, gbc, 1, 4, "Кружок", kruzhok);
-        addControl(editorPanel, gbc, 2, 5, удалитьButton);
+        addControl(editorPanel, gbc, 2, 5, deleteButton);
 
         addField(editorPanel, gbc, 0, 6, "Должность", position);
         addField(editorPanel, gbc, 1, 6, "Группа", group);
-        addControl(editorPanel, gbc, 2, 7, param);
+        addControl(editorPanel, gbc, 2, 7, reportParam);
 
         return editorPanel;
     }
 
     private JComponent createBottomButtonsPanel() {
-        JPanel bottomPanel = new JPanel(new GridLayout(1, 2, 12, 0));
-        bottomPanel.setOpaque(false);
-        bottomPanel.setBorder(new EmptyBorder(0, 12, 12, 12));
+        JPanel bottomPanel = new JPanel(new GridLayout(1, 2, 14, 0));
+        bottomPanel.setBackground(jpanel.getBackground());
+        bottomPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
 
-        отчетПоНомеруButton = createActionButton("Отчет по номеру");
-        просмотретьОтчетButton = createActionButton("Просмотреть отчет");
+        reportByNumberButton = createActionButton("Отчет по номеру");
+        viewReportButton = createActionButton("Просмотреть отчет");
 
-        bottomPanel.add(отчетПоНомеруButton);
-        bottomPanel.add(просмотретьОтчетButton);
+        bottomPanel.add(reportByNumberButton);
+        bottomPanel.add(viewReportButton);
         return bottomPanel;
     }
 
     private void bindActions() {
-        обновитьButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    conn = Main.ConnectDB();
-                    stored_pro = conn.prepareCall("{call update_employee (?,?,?,?,?,?,?,?)}");
-                    stored_pro.setString(1, id.getText());
-                    stored_pro.setString(2, FIO.getText());
-                    stored_pro.setString(3, date.getText());
-                    stored_pro.setString(4, (String) position.getSelectedItem());
-                    stored_pro.setString(5, address.getText());
-                    stored_pro.setString(6, pNumber.getText());
-                    stored_pro.setString(7, (String) kruzhok.getSelectedItem());
-                    stored_pro.setString(8, (String) group.getSelectedItem());
-                    stored_pro.execute();
-                    JOptionPane.showMessageDialog(null, "Updated");
-                    clearFields();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, ex);
-                }
-                UpdateJTable2();
-            }
-        });
-
-        добавитьButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    conn = Main.ConnectDB();
-                    stored_pro = conn.prepareCall("{call insert_employee (?,?,?,?,?,?,?)}");
-                    stored_pro.setString(1, FIO.getText());
-                    stored_pro.setString(2, date.getText());
-                    stored_pro.setString(3, (String) position.getSelectedItem());
-                    stored_pro.setString(4, address.getText());
-                    stored_pro.setString(5, pNumber.getText());
-                    stored_pro.setString(6, (String) kruzhok.getSelectedItem());
-                    stored_pro.setString(7, (String) group.getSelectedItem());
-                    stored_pro.execute();
-                    JOptionPane.showMessageDialog(null, "Saved");
-                    clearFields();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, ex);
-                }
-                UpdateJTable2();
-            }
-        });
-
-        удалитьButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    conn = Main.ConnectDB();
-                    stored_pro = conn.prepareCall("{call delete_employee (?)}");
-                    stored_pro.setString(1, id.getText());
-                    stored_pro.execute();
-                    JOptionPane.showMessageDialog(null, "Deleted");
-                    clearFields();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, ex);
-                }
-                UpdateJTable2();
-            }
-        });
+        updateButton.addActionListener(e -> updateEmployee());
+        addButton.addActionListener(e -> addEmployee());
+        deleteButton.addActionListener(e -> deleteEmployee());
+        reportByNumberButton.addActionListener(e -> showById());
+        viewReportButton.addActionListener(e -> showMeAllReport());
 
         table1.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 super.mousePressed(e);
-                try {
-                    conn = Main.ConnectDB();
-                    int row = table1.getSelectedRow();
-                    String Id = table1.getModel().getValueAt(row, 0).toString();
-                    String query = "select * from View_employee where id='" + Id + "'";
-                    PreparedStatement pst = conn.prepareStatement(query);
-                    ResultSet rs = pst.executeQuery();
-                    while (rs.next()) {
-                        id.setText(rs.getString("id"));
-                        FIO.setText(rs.getString("FIO"));
-                        date.setText(rs.getString("dateborn"));
-                        position.setSelectedItem(rs.getString("position"));
-                        address.setText(rs.getString("adress"));
-                        pNumber.setText(rs.getString("tel_number"));
-                        kruzhok.setSelectedItem(rs.getString("kruzhok"));
-                        group.setSelectedItem(rs.getString("groups"));
-                        param.setText(rs.getString("id"));
-                    }
-                    pst.close();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, ex);
-                }
+                populateFieldsFromTable();
             }
         });
+    }
+
+    private void updateEmployee() {
+        try {
+            conn = Main.ConnectDB();
+            stored_pro = conn.prepareCall("{call update_employee (?,?,?,?,?,?,?,?)}");
+            stored_pro.setString(1, id.getText());
+            stored_pro.setString(2, fio.getText());
+            stored_pro.setString(3, dateBorn.getText());
+            stored_pro.setString(4, (String) position.getSelectedItem());
+            stored_pro.setString(5, address.getText());
+            stored_pro.setString(6, phoneNumber.getText());
+            stored_pro.setString(7, (String) kruzhok.getSelectedItem());
+            stored_pro.setString(8, (String) group.getSelectedItem());
+            stored_pro.execute();
+            JOptionPane.showMessageDialog(null, "Updated");
+            clearFields();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, ex);
+        }
+        UpdateJTable2();
+    }
+
+    private void addEmployee() {
+        try {
+            conn = Main.ConnectDB();
+            stored_pro = conn.prepareCall("{call insert_employee (?,?,?,?,?,?,?)}");
+            stored_pro.setString(1, fio.getText());
+            stored_pro.setString(2, dateBorn.getText());
+            stored_pro.setString(3, (String) position.getSelectedItem());
+            stored_pro.setString(4, address.getText());
+            stored_pro.setString(5, phoneNumber.getText());
+            stored_pro.setString(6, (String) kruzhok.getSelectedItem());
+            stored_pro.setString(7, (String) group.getSelectedItem());
+            stored_pro.execute();
+            JOptionPane.showMessageDialog(null, "Saved");
+            clearFields();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, ex);
+        }
+        UpdateJTable2();
+    }
+
+    private void deleteEmployee() {
+        try {
+            conn = Main.ConnectDB();
+            stored_pro = conn.prepareCall("{call delete_employee (?)}");
+            stored_pro.setString(1, id.getText());
+            stored_pro.execute();
+            JOptionPane.showMessageDialog(null, "Deleted");
+            clearFields();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, ex);
+        }
+        UpdateJTable2();
+    }
+
+    private void populateFieldsFromTable() {
+        try {
+            conn = Main.ConnectDB();
+            int row = table1.getSelectedRow();
+            if (row < 0) {
+                return;
+            }
+
+            String selectedId = table1.getModel().getValueAt(row, 0).toString();
+            String query = "select * from View_employee where id = ?";
+            pst = conn.prepareStatement(query);
+            pst.setString(1, selectedId);
+            rs = pst.executeQuery();
+
+            while (rs.next()) {
+                id.setText(rs.getString("id"));
+                fio.setText(rs.getString("FIO"));
+                dateBorn.setText(readColumn(rs, "dateBorn", "dateborn"));
+                position.setSelectedItem(rs.getString("position"));
+                address.setText(rs.getString("adress"));
+                phoneNumber.setText(readColumn(rs, "phoneNumber", "tel_number"));
+                kruzhok.setSelectedItem(rs.getString("kruzhok"));
+                group.setSelectedItem(rs.getString("groups"));
+                reportParam.setText(rs.getString("id"));
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, ex);
+        }
+    }
+
+    private String readColumn(ResultSet resultSet, String primaryName, String fallbackName) throws SQLException {
+        try {
+            return resultSet.getString(primaryName);
+        } catch (SQLException ignored) {
+            return resultSet.getString(fallbackName);
+        }
     }
 
     private void loadComboBoxes() {
         try {
             conn = Main.ConnectDB();
-            position.addItem(null);
-            kruzhok.addItem(null);
-            group.addItem(null);
+            resetComboBox(position);
+            resetComboBox(kruzhok);
+            resetComboBox(group);
             open_position();
             open_kruzhok();
             open_group();
@@ -253,16 +285,64 @@ public class Employees extends JFrame {
         }
     }
 
+    private void resetComboBox(JComboBox<String> comboBox) {
+        comboBox.removeAllItems();
+        comboBox.addItem(null);
+    }
+
     private void clearFields() {
         id.setText("");
-        FIO.setText("");
-        date.setText("");
+        fio.setText("");
+        dateBorn.setText("");
         position.setSelectedItem(null);
         address.setText("");
-        pNumber.setText("");
+        phoneNumber.setText("");
         kruzhok.setSelectedItem(null);
         group.setSelectedItem(null);
-        param.setText("");
+        reportParam.setText("");
+    }
+
+    private void showReportStub(boolean filteredById) {
+        String message = filteredById
+                ? "Для кнопки «Отчет по номеру» нужен JasperReports шаблон."
+                : "Для кнопки «Просмотреть отчет» нужен JasperReports шаблон.";
+        JOptionPane.showMessageDialog(this, message);
+    }
+
+    private void showById() {
+        try {
+            if (reportParam.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Выберите сотрудника из таблицы.");
+                return;
+            }
+
+            conn = Main.ConnectDB();
+            String reportPath = new File("reports/EmplID.jasper").getAbsolutePath();
+            HashMap<String, Object> hm = new HashMap<>();
+            hm.put("param", Long.parseLong(reportParam.getText().trim()));
+            JasperReport jasperReport = (JasperReport) JRLoader.loadObjectFromFile(reportPath);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, hm, conn);
+            JasperViewer viewer = new JasperViewer(jasperPrint, false);
+            viewer.setVisible(true);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, e);
+        }
+    }
+
+    private void showMeAllReport() {
+        conn = Main.ConnectDB();
+
+        try {
+            String reportPath = new File("reports/Simple_Blue.jasper").getAbsolutePath();
+            JasperReport jasperReport = (JasperReport) JRLoader.loadObjectFromFile(reportPath);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, null, conn);
+            JasperViewer viewer = new JasperViewer(jasperPrint, false);
+            viewer.setVisible(true);
+        } catch (JRException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, e);
+        }
     }
 
     private void UpdateJTable2() {
@@ -271,7 +351,7 @@ public class Employees extends JFrame {
             String sql = "SELECT [id], [FIO], [dateborn], [position], [adress], [tel_number], [kruzhok], [groups] FROM [View_employee]";
             statement = conn.createStatement();
             rs = statement.executeQuery(sql);
-            this.table1.setModel(DbUtils.resultSetToTableModel(rs));
+            table1.setModel(DbUtils.resultSetToTableModel(rs));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -284,8 +364,7 @@ public class Employees extends JFrame {
             rs = pst.executeQuery();
 
             while (rs.next()) {
-                String Position = rs.getString("position");
-                position.addItem(Position);
+                position.addItem(rs.getString("position"));
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, e);
@@ -294,13 +373,12 @@ public class Employees extends JFrame {
 
     private void open_kruzhok() {
         try {
-            String sql = "Select *from kruzhok";
+            String sql = "Select * from kruzhok";
             pst = conn.prepareStatement(sql);
             rs = pst.executeQuery();
 
             while (rs.next()) {
-                String Kruzhok = rs.getString("kruzhok");
-                kruzhok.addItem(Kruzhok);
+                kruzhok.addItem(rs.getString("kruzhok"));
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, e);
@@ -309,13 +387,12 @@ public class Employees extends JFrame {
 
     private void open_group() {
         try {
-            String sql = "Select *from [group]";
+            String sql = "Select * from [group]";
             pst = conn.prepareStatement(sql);
             rs = pst.executeQuery();
 
             while (rs.next()) {
-                String groups = rs.getString("groups");
-                group.addItem(groups);
+                group.addItem(rs.getString("groups"));
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, e);
@@ -335,7 +412,7 @@ public class Employees extends JFrame {
     private void addControl(JPanel panel, GridBagConstraints gbc, int column, int row, JComponent component) {
         gbc.gridx = column;
         gbc.gridy = row;
-        gbc.weightx = 0.95;
+        gbc.weightx = 0.85;
         panel.add(prepareInput(component), gbc);
     }
 
@@ -346,7 +423,7 @@ public class Employees extends JFrame {
     }
 
     private JComponent prepareInput(JComponent component) {
-        component.setPreferredSize(new Dimension(220, 36));
+        component.setPreferredSize(new Dimension(230, 38));
         if (component instanceof JTextField) {
             ((JTextField) component).setColumns(14);
         }
@@ -357,6 +434,7 @@ public class Employees extends JFrame {
         JButton button = new JButton(text);
         button.setFont(new Font("Segoe UI", Font.PLAIN, 15));
         button.setFocusPainted(false);
+        button.setPreferredSize(new Dimension(230, 38));
         return button;
     }
 }

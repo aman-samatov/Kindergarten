@@ -23,7 +23,7 @@ public class MainForm extends JFrame {
                 Employees form1 = new Employees();
                 form1.setContentPane(form1.jpanel);
                 form1.setTitle("Сотрудники");
-                form1.setSize(600, 450);
+                form1.setSize(860, 700);
                 form1.setLocationRelativeTo(null);
                 form1.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
                 form1.setVisible(true);
