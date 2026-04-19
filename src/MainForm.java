@@ -49,7 +49,7 @@ public class MainForm extends JFrame {
                 AllChildren form3 = new AllChildren();
                 form3.setContentPane(form3.panelchill);
                 form3.setTitle("Список всех детей");
-                form3.setSize(650, 500);
+                form3.setSize(860, 700);
                 form3.setLocationRelativeTo(null);
                 form3.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
                 form3.setVisible(true);
